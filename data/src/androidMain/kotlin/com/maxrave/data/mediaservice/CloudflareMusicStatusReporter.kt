@@ -29,30 +29,37 @@ internal class CloudflareMusicStatusReporter(
     fun onTrackChanged(song: SongEntity, isPlaying: Boolean) {
         latestSong = song
         publish(song, isPlaying)
+        if (isPlaying) startHeartbeat() else stopHeartbeat()
+    }
+
+    private fun startHeartbeat() {
+        if (heartbeatJob?.isActive == true) return
+        heartbeatJob = scope.launch {
+            while (true) {
+                delay(3 * 60 * 1000L)
+                latestSong?.let { send(it, true) }
+            }
+        }
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
     }
 
     fun onPlaybackChanged(isPlaying: Boolean) {
         val song = latestSong ?: return
         if (isPlaying) {
             publish(song, true)
-            if (heartbeatJob?.isActive != true) {
-                heartbeatJob = scope.launch {
-                    while (true) {
-                        delay(3 * 60 * 1000L)
-                        latestSong?.let { send(it, true) }
-                    }
-                }
-            }
+            startHeartbeat()
         } else {
-            heartbeatJob?.cancel()
-            heartbeatJob = null
+            stopHeartbeat()
             publish(song, false)
         }
     }
 
     fun close() {
-        heartbeatJob?.cancel()
-        heartbeatJob = null
+        stopHeartbeat()
         latestSong?.let { publish(it, false) }
     }
 
