@@ -683,7 +683,7 @@ internal class MediaServiceHandlerImpl(
                             )
                         }
                         updateDiscordRpc(songEntity)
-                        cloudflareStatusReporter.onTrackChanged(songEntity)
+                        cloudflareStatusReporter.onTrackChanged(songEntity, player.isPlaying)
                         // Launched separately: "now playing" is a network round trip, and this job
                         // still has the rest of the track state to publish.
                         coroutineScope.launch { lastfmScrobbler.onTrackStarted(songEntity) }
