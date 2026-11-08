@@ -26,9 +26,9 @@ internal class CloudflareMusicStatusReporter(
     private var heartbeatJob: Job? = null
     @Volatile private var latestSong: SongEntity? = null
 
-    fun onTrackChanged(song: SongEntity) {
+    fun onTrackChanged(song: SongEntity, isPlaying: Boolean) {
         latestSong = song
-        publish(song, isPlaying = true)
+        publish(song, isPlaying)
     }
 
     fun onPlaybackChanged(isPlaying: Boolean) {
