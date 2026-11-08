@@ -141,6 +141,7 @@ internal class MediaServiceHandlerImpl(
      * and all three actuals for one dependency.
      */
     private val lastfmScrobbler = LastfmScrobbler(dataStoreManager)
+    private val cloudflareStatusReporter = CloudflareMusicStatusReporter(dataStoreManager, backgroundScope)
     override var onUpdateNotification: (List<GenericCommandButton>) -> Unit = {}
     override var showToast: (ToastType) -> Unit = {}
     override var pushPlayerError: (PlayerError) -> Unit = {}
@@ -682,6 +683,7 @@ internal class MediaServiceHandlerImpl(
                             )
                         }
                         updateDiscordRpc(songEntity)
+                        cloudflareStatusReporter.onTrackChanged(songEntity)
                         // Launched separately: "now playing" is a network round trip, and this job
                         // still has the rest of the track state to publish.
                         coroutineScope.launch { lastfmScrobbler.onTrackStarted(songEntity) }
@@ -2647,6 +2649,7 @@ internal class MediaServiceHandlerImpl(
             if (discordRPC?.isRpcRunning() == true) {
                 discordRPC?.closeRPC()
             }
+            cloudflareStatusReporter.close()
             discordRPC = null
             // Save state first
             mayBeSaveRecentSong(true)
@@ -2753,6 +2756,7 @@ internal class MediaServiceHandlerImpl(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         _controlState.value = _controlState.value.copy(isPlaying = isPlaying)
+        cloudflareStatusReporter.onPlaybackChanged(isPlaying)
         if (isPlaying) {
             startProgressUpdate()
             nowPlayingState.value.songEntity?.let { updateDiscordRpc(it) }
