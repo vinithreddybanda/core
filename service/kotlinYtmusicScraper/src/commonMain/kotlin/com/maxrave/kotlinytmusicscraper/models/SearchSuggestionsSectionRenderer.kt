@@ -8,13 +8,13 @@ data class SearchSuggestionsSectionRenderer(
 ) {
     @Serializable
     data class Content(
-        val searchSuggestionRenderer: SearchSuggestionRenderer?,
-        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer?,
+        val searchSuggestionRenderer: SearchSuggestionRenderer? = null,
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
     ) {
         @Serializable
         data class SearchSuggestionRenderer(
             val suggestion: Runs,
-            val navigationEndpoint: NavigationEndpoint,
+            val navigationEndpoint: NavigationEndpoint? = null,
         )
     }
 }
