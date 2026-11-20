@@ -2036,28 +2036,26 @@ class YouTube {
     suspend fun getYTMusicSearchSuggestions(query: String) =
         runCatching {
             val response = ytMusic.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
+            val suggestionContents =
+                response.contents
+                    .orEmpty()
+                    .flatMap { section -> section.searchSuggestionsSectionRenderer.contents }
+
             SearchSuggestions(
                 queries =
-                    response.contents
-                        ?.getOrNull(0)
-                        ?.searchSuggestionsSectionRenderer
-                        ?.contents
-                        ?.mapNotNull { content ->
-                            content.searchSuggestionRenderer
-                                ?.suggestion
-                                ?.runs
-                                ?.joinToString(separator = "") { it.text }
-                        }.orEmpty(),
+                    suggestionContents.mapNotNull { content ->
+                        content.searchSuggestionRenderer
+                            ?.suggestion
+                            ?.runs
+                            ?.joinToString(separator = "") { it.text }
+                            ?.takeIf { it.isNotBlank() }
+                    }.distinct(),
                 recommendedItems =
-                    response.contents
-                        ?.getOrNull(1)
-                        ?.searchSuggestionsSectionRenderer
-                        ?.contents
-                        ?.mapNotNull {
-                            it.musicResponsiveListItemRenderer?.let { renderer ->
-                                SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
-                            }
-                        }.orEmpty(),
+                    suggestionContents.mapNotNull { content ->
+                        content.musicResponsiveListItemRenderer?.let { renderer ->
+                            SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
+                        }
+                    }.distinctBy { it.id },
             )
         }
 
