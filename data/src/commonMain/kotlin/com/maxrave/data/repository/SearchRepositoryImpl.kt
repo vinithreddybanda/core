@@ -19,6 +19,7 @@ import com.maxrave.domain.repository.SearchRepository
 import com.maxrave.domain.utils.Resource
 import com.maxrave.kotlinytmusicscraper.YouTube
 import com.maxrave.logger.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -295,15 +296,25 @@ internal class SearchRepositoryImpl(
 
     override fun getSuggestQuery(query: String): Flow<Resource<SearchSuggestions>> =
         flow {
-            runCatching {
-                youTube
-                    .getYTMusicSearchSuggestions(query)
-                    .onSuccess {
-                        emit(Resource.Success(it.toDomainSearchSuggestions()))
-                    }.onFailure { e ->
-                        Logger.d("Suggest", "Error: ${e.message}")
-                        emit(Resource.Error<SearchSuggestions>(e.message.toString()))
-                    }
-            }
+            val result = youTube.getYTMusicSearchSuggestions(query)
+            val resource =
+                result.fold(
+                    onSuccess = { suggestions ->
+                        try {
+                            Resource.Success<SearchSuggestions>(suggestions.toDomainSearchSuggestions())
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (exception: Exception) {
+                            Logger.e("Suggest", "Failed to map suggestions: ${exception.message}")
+                            Resource.Error<SearchSuggestions>(exception.message ?: "Unable to parse suggestions")
+                        }
+                    },
+                    onFailure = { exception ->
+                        if (exception is CancellationException) throw exception
+                        Logger.d("Suggest", "Error: ${exception.message}")
+                        Resource.Error<SearchSuggestions>(exception.message ?: "Unable to load suggestions")
+                    },
+                )
+            emit(resource)
         }.flowOn(Dispatchers.IO)
 }
