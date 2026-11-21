@@ -159,11 +159,17 @@ internal class SimpleMediaService :
 
     @UnstableApi
     override fun onDestroy() {
-        super.onDestroy()
         Logger.w("Service", "Simple Media Service Destroyed")
         if (simpleMediaServiceHandler.shouldReleaseOnTaskRemoved()) {
+            // Task removal owns the full playback/handler shutdown path.
             release()
+        } else {
+            // A service can be recreated while the process is still alive. Always unregister
+            // the old MediaLibrarySession before another instance builds the same stable ID.
+            mediaSession?.release()
+            mediaSession = null
         }
+        super.onDestroy()
     }
 
     override fun onTrimMemory(level: Int) {
