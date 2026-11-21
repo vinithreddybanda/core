@@ -78,6 +78,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<SongsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataSong: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<SongsResult>>(
+                        exception.message ?: "Unable to load song",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -114,6 +122,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<VideosResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataVideo: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<VideosResult>>(
+                        exception.message ?: "Unable to load video",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -151,6 +167,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<PlaylistsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataPodcast: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<PlaylistsResult>>(
+                        exception.message ?: "Unable to load podcast",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -186,6 +210,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<PlaylistsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataFeaturedPlaylist: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<PlaylistsResult>>(
+                        exception.message ?: "Unable to load featuredplaylist",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -221,6 +253,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<ArtistsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataArtist: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<ArtistsResult>>(
+                        exception.message ?: "Unable to load artist",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -256,6 +296,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<AlbumsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataAlbum: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<AlbumsResult>>(
+                        exception.message ?: "Unable to load album",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -291,6 +339,14 @@ internal class SearchRepositoryImpl(
                         Logger.d("Search", "Error: ${e.message}")
                         emit(Resource.Error<ArrayList<PlaylistsResult>>(e.message.toString()))
                     }
+            }.onFailure { exception ->
+                if (exception is CancellationException) throw exception
+                Logger.e("Search", "Search retrieval/parsing failed for getSearchDataPlaylist: ${exception.message}")
+                emit(
+                    Resource.Error<ArrayList<PlaylistsResult>>(
+                        exception.message ?: "Unable to load playlist",
+                    ),
+                )
             }
         }.flowOn(Dispatchers.IO)
 
