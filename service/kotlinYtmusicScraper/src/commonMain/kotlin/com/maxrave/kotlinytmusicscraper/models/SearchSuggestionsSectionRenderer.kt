@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SearchSuggestionsSectionRenderer(
-    val contents: List<Content>,
+    val contents: List<Content>? = null,
 ) {
     @Serializable
     data class Content(

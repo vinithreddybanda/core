@@ -95,6 +95,7 @@ import com.maxrave.kotlinytmusicscraper.parser.hasReloadParams
 import com.maxrave.logger.Logger
 import com.mohamedrejeb.ksoup.html.parser.KsoupHtmlHandler
 import com.mohamedrejeb.ksoup.html.parser.KsoupHtmlParser
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.call.body
 import io.ktor.client.engine.ProxyBuilder
 import io.ktor.client.engine.http
@@ -2033,30 +2034,43 @@ class YouTube {
         }
     }
 
-    suspend fun getYTMusicSearchSuggestions(query: String) =
-        runCatching {
+    suspend fun getYTMusicSearchSuggestions(query: String): Result<SearchSuggestions> =
+        try {
             val response = ytMusic.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
+            // YouTube can return mixed or partially populated sections. Ignore sections that do
+            // not contain a suggestions renderer instead of failing the entire search response.
             val suggestionContents =
-                response.contents
-                    .orEmpty()
-                    .flatMap { section -> section.searchSuggestionsSectionRenderer.contents }
+                response.contents.orEmpty().flatMap { section ->
+                    section.searchSuggestionsSectionRenderer?.contents.orEmpty()
+                }
 
-            SearchSuggestions(
-                queries =
-                    suggestionContents.mapNotNull { content ->
-                        content.searchSuggestionRenderer
-                            ?.suggestion
-                            ?.runs
-                            ?.joinToString(separator = "") { it.text }
-                            ?.takeIf { it.isNotBlank() }
-                    }.distinct(),
-                recommendedItems =
-                    suggestionContents.mapNotNull { content ->
-                        content.musicResponsiveListItemRenderer?.let { renderer ->
-                            SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
-                        }
-                    }.distinctBy { it.id },
+            Result.success(
+                SearchSuggestions(
+                    queries =
+                        suggestionContents.mapNotNull { content ->
+                            content.searchSuggestionRenderer
+                                ?.suggestion
+                                ?.runs
+                                ?.joinToString(separator = "") { it.text }
+                                ?.takeIf { it.isNotBlank() }
+                        }.distinct(),
+                    recommendedItems =
+                        suggestionContents.mapNotNull { content ->
+                            content.musicResponsiveListItemRenderer?.let { renderer ->
+                                try {
+                                    SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
+                                } catch (exception: Exception) {
+                                    Logger.d(TAG, "Skipping malformed search suggestion: ${exception.message}")
+                                    null
+                                }
+                            }
+                        }.distinctBy { it.id },
+                ),
             )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (exception: Exception) {
+            Result.failure(exception)
         }
 
     suspend fun getYouTubeCaption(
