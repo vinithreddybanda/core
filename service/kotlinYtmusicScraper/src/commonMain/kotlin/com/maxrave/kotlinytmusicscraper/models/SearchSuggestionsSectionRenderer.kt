@@ -13,7 +13,7 @@ data class SearchSuggestionsSectionRenderer(
     ) {
         @Serializable
         data class SearchSuggestionRenderer(
-            val suggestion: Runs,
+            val suggestion: Runs? = null,
             val navigationEndpoint: NavigationEndpoint? = null,
         )
     }
