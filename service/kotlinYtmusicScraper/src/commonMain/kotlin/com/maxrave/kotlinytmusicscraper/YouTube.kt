@@ -2037,25 +2037,30 @@ class YouTube {
     suspend fun getYTMusicSearchSuggestions(query: String): Result<SearchSuggestions> =
         try {
             val response = ytMusic.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
-            // YouTube can return mixed or partially populated sections. Ignore sections that do
-            // not contain a suggestions renderer instead of failing the entire search response.
-            val suggestionContents =
-                response.contents.orEmpty().flatMap { section ->
-                    section.searchSuggestionsSectionRenderer?.contents.orEmpty()
-                }
+            val queryContents =
+                response.contents
+                    ?.getOrNull(0)
+                    ?.searchSuggestionsSectionRenderer
+                    ?.contents
+                    .orEmpty()
+            val recommendedContents =
+                response.contents
+                    ?.getOrNull(1)
+                    ?.searchSuggestionsSectionRenderer
+                    ?.contents
+                    .orEmpty()
 
             Result.success(
                 SearchSuggestions(
                     queries =
-                        suggestionContents.mapNotNull { content ->
+                        queryContents.mapNotNull { content ->
                             content.searchSuggestionRenderer
                                 ?.suggestion
                                 ?.runs
                                 ?.joinToString(separator = "") { it.text }
-                                ?.takeIf { it.isNotBlank() }
-                        }.distinct(),
+                        },
                     recommendedItems =
-                        suggestionContents.mapNotNull { content ->
+                        recommendedContents.mapNotNull { content ->
                             content.musicResponsiveListItemRenderer?.let { renderer ->
                                 try {
                                     SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
@@ -2064,7 +2069,7 @@ class YouTube {
                                     null
                                 }
                             }
-                        }.distinctBy { it.id },
+                        },
                 ),
             )
         } catch (cancellation: CancellationException) {
