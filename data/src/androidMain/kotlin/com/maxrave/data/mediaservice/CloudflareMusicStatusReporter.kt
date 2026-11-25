@@ -8,7 +8,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -24,6 +27,8 @@ internal class CloudflareMusicStatusReporter(
     private val scope: CoroutineScope,
 ) {
     private var heartbeatJob: Job? = null
+    private val publishMutex = Mutex()
+    private val publishSequence = AtomicLong(0L)
     @Volatile private var latestSong: SongEntity? = null
 
     fun onTrackChanged(song: SongEntity, isPlaying: Boolean) {
@@ -37,7 +42,7 @@ internal class CloudflareMusicStatusReporter(
         heartbeatJob = scope.launch {
             while (true) {
                 delay(2 * 60 * 1000L)
-                latestSong?.let { send(it, true) }
+                latestSong?.let { publish(it, true) }
             }
         }
     }
@@ -64,7 +69,15 @@ internal class CloudflareMusicStatusReporter(
     }
 
     private fun publish(song: SongEntity, isPlaying: Boolean) {
-        scope.launch { send(song, isPlaying) }
+        val sequence = publishSequence.incrementAndGet()
+        scope.launch {
+            publishMutex.withLock {
+                // A delayed heartbeat or older transition must never overwrite a newer track.
+                if (sequence != publishSequence.get()) return@withLock
+                if (song.videoId != latestSong?.videoId) return@withLock
+                send(song, isPlaying)
+            }
+        }
     }
 
     private suspend fun send(song: SongEntity, isPlaying: Boolean) {
@@ -99,7 +112,10 @@ internal class CloudflareMusicStatusReporter(
                     setRequestProperty("Authorization", "Bearer $token")
                 }
                 connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-                connection.responseCode
+                val responseCode = connection.responseCode
+                if (responseCode !in 200..299) {
+                    com.maxrave.logger.Logger.w(TAG, "Cloudflare Worker update rejected: HTTP $responseCode")
+                }
             } catch (_: Exception) {
                 // Optional integration. Playback must remain unaffected by a Worker outage.
             } finally {
@@ -109,6 +125,7 @@ internal class CloudflareMusicStatusReporter(
     }
 
     companion object {
+        private const val TAG = "CloudflareMusicStatusReporter"
         const val KEY_WORKER_URL = "cloudflare_music_status_worker_url"
         const val KEY_WORKER_TOKEN = "cloudflare_music_status_worker_token"
         private const val DEFAULT_WORKER_URL = "https://vinith-music-status.vinithreddy08-123.workers.dev"
