@@ -648,6 +648,13 @@ internal class MediaServiceHandlerImpl(
         val track =
             queueData.value.data.listTracks
                 .find { it.videoId == videoId }
+
+        // Publish at transition time instead of waiting for the database lookup below.
+        cloudflareStatusReporter.onTrackChanged(
+            track?.toSongEntity() ?: mediaItem.toSongEntity(),
+            player.isPlaying,
+        )
+
         _nowPlayingState.update {
             it.copy(
                 mediaItem = mediaItem,
@@ -699,7 +706,7 @@ internal class MediaServiceHandlerImpl(
                             )
                         }
                         updateDiscordRpc(songEntity)
-                        cloudflareStatusReporter.onTrackChanged(songEntity, player.isPlaying)
+
                         // Launched separately: "now playing" is a network round trip, and this job
                         // still has the rest of the track state to publish.
                         coroutineScope.launch { lastfmScrobbler.onTrackStarted(songEntity) }
@@ -727,7 +734,7 @@ internal class MediaServiceHandlerImpl(
                             )
                         }
                         updateDiscordRpc(songEntity)
-                        cloudflareStatusReporter.onTrackChanged(songEntity, player.isPlaying)
+
                         // Launched separately: "now playing" is a network round trip, and this job
                         // still has the rest of the track state to publish.
                         coroutineScope.launch { lastfmScrobbler.onTrackStarted(songEntity) }
