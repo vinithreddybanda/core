@@ -2017,6 +2017,24 @@ internal class CrossfadeExoPlayerAdapter(
                     }
                 }
 
+                override fun onMediaItemTransition(
+                    mediaItem: MediaItem?,
+                    reason: Int,
+                ) {
+                    if (player != currentPlayer || mediaItem == null) return
+                    val genericMediaItem = playlist.firstOrNull { it.mediaId == mediaItem.mediaId } ?: return
+                    val domainReason =
+                        when (reason) {
+                            Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> PlayerConstants.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+                            Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> PlayerConstants.MEDIA_ITEM_TRANSITION_REASON_AUTO
+                            Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> PlayerConstants.MEDIA_ITEM_TRANSITION_REASON_SEEK
+                            Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> PlayerConstants.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
+                            else -> reason
+                        }
+                    Logger.d(TAG, "Underlying player transition: ${mediaItem.mediaId}, reason=$reason")
+                    listeners.forEach { it.onMediaItemTransition(genericMediaItem, domainReason) }
+                }
+
                 override fun onTracksChanged(tracks: Tracks) {
                     if (player != currentPlayer) {
                         Logger.d(TAG, "Ignoring onPlaybackStateChanged from non-current player")
