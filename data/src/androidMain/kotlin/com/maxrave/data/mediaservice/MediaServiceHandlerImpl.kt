@@ -334,6 +334,7 @@ internal class MediaServiceHandlerImpl(
     //
     init {
         player.addListener(this)
+        syncNowPlayingFromPlayer("handler_init")
         progressJob = Job()
         bufferedJob = Job()
         sleepTimerJob = Job()
@@ -635,6 +636,24 @@ internal class MediaServiceHandlerImpl(
             playbackJob.join()
             playbackSpeedPitchJob.join()
             discordRPCEnabledJob.join()
+        }
+    }
+
+    /**
+     * Reconcile the handler with the player's authoritative current item.
+     *
+     * MediaSession transport controls (notification, lock screen, Bluetooth and Android Auto)
+     * can advance playback without the foreground UI being present. The transition callback is
+     * the primary signal; timeline and playback callbacks are safety nets for adapter/session
+     * transitions where that callback can be missed.
+     */
+    private fun syncNowPlayingFromPlayer(source: String) {
+        val mediaItem = player.currentMediaItem ?: return
+        if (mediaItem.mediaId.isBlank()) return
+        if (mediaItem.mediaId != nowPlayingState.value.mediaItem.mediaId) {
+            Logger.w(TAG, "Syncing current item from $source: ${mediaItem.mediaId}")
+            _nowPlaying.value = mediaItem
+            getDataOfNowPlayingState(mediaItem)
         }
     }
 
@@ -2779,6 +2798,9 @@ internal class MediaServiceHandlerImpl(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         _controlState.value = _controlState.value.copy(isPlaying = isPlaying)
+        // Read the player's current item before changing reporter playback state. This catches
+        // lock-screen/notification track advances even if an adapter transition event was missed.
+        syncNowPlayingFromPlayer("playback_state")
         cloudflareStatusReporter.onPlaybackChanged(isPlaying)
         if (isPlaying) {
             startProgressUpdate()
@@ -2820,18 +2842,14 @@ internal class MediaServiceHandlerImpl(
         mayBeNormalizeVolume()
         Logger.w(TAG, "REASON onMediaItemTransition: $reason")
         Logger.d(TAG, "Media Item Transition Media Item: ${mediaItem?.metadata?.title}")
-        if (mediaItem?.mediaId != _nowPlaying.value?.mediaId) {
+        if (mediaItem != null && mediaItem.mediaId != nowPlayingState.value.mediaItem.mediaId) {
+            Logger.w(TAG, "onMediaItemTransition: ${mediaItem.mediaId}")
             _nowPlaying.value = mediaItem
-        }
-        if (mediaItem?.mediaId != nowPlayingState.value.mediaItem.mediaId) {
-            Logger.w(TAG, "onMediaItemTransition: ${mediaItem?.mediaId}")
-            if (mediaItem != null) {
-                getDataOfNowPlayingState(mediaItem)
-            } else {
-                _nowPlayingState.update {
-                    NowPlayingTrackState
-                        .initial()
-                }
+            getDataOfNowPlayingState(mediaItem)
+        } else if (mediaItem == null) {
+            _nowPlayingState.update {
+                NowPlayingTrackState
+                    .initial()
             }
         } else if (mediaItem != null) {
             // Repeat-one replays the same mediaId without reloading now-playing data, so the RPC
@@ -3032,6 +3050,7 @@ internal class MediaServiceHandlerImpl(
         super.onTimelineChanged(list, reason)
         Logger.d(TAG, "onTimelineChanged: Reason: $reason, Items: ${list.size}")
         reorderShuffledQueue(list)
+        syncNowPlayingFromPlayer("timeline:$reason")
     }
 
     override fun onCastStateChanged(castState: GenericCastState) {
