@@ -81,7 +81,7 @@ internal class CloudflareMusicStatusReporter(
                 .put("artist", song.artistName?.joinToString(", ").orEmpty())
                 .put("album", song.albumName.orEmpty())
                 .put("artwork", song.thumbnails.orEmpty())
-                .put("duration", song.durationSeconds)
+                .put("durationMs", song.durationSeconds * 1000L)
                 .put("url", "https://music.youtube.com/watch?v=${song.videoId}"))
             .toString()
 
